@@ -1,4 +1,4 @@
-from network import Network, TaskRewardNetwork
+from network import ActionPenaltyNetwork, TaskRewardNetwork, QLearningWrapper
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -8,13 +8,21 @@ from multiprocessing import Pool
 
 
 data = {
-    (0, 0, 0): [0, 0],
-    (0, 0, 1): [0, 1],
-    (0, 1, 0): [0, 1],
-    (1, 0, 0): [0, 1],
-    (0, 1, 1): [1, 0],
-    (1, 1, 0): [1, 0],
-    (1, 1, 1): [1, 1],
+    (0, 0, 0, 0): [0, 0],
+    (0, 0, 0, 1): [0, 1],
+    (0, 0, 1, 0): [0, 1],
+    (0, 1, 0, 0): [0, 1],
+    (1, 0, 0, 0): [0, 1],
+    (1, 1, 0, 0): [1, 0],
+    (0, 1, 1, 0): [1, 0],
+    (0, 0, 1, 1): [1, 0],
+    (1, 0, 0, 1): [1, 0],
+    (0, 1, 0, 1): [1, 0],
+    (1, 0, 1, 0): [1, 0],
+    (1, 1, 1, 0): [1, 1],
+    (0, 1, 1, 1): [1, 1],
+    (1, 0, 1, 1): [1, 1],
+    (1, 1, 0, 1): [1, 1],
 }
 
 # data = {
@@ -27,7 +35,7 @@ def run_experiment(net):
 
     results = []
     steps = 10000
-    e_schedule = np.linspace(0.5, 0.0, steps) ** 2
+    e_schedule = np.linspace(0.5, 0, steps) ** 2
 
     input = random.choice(list(data))
     for step in range(steps):
@@ -35,12 +43,12 @@ def run_experiment(net):
         input = random.choice(list(data))
         net.set_epsilon(e_schedule[step])
 
-        output = net.act([input])
+        output = net.act(input)
         if all(np.array(output) == np.array(data[input])):
-            net.add_energy(net.n_neurons * 1.5)
+            net.get_reward(100)
             task_success = 1
         else:
-            net.add_energy(0)
+            net.get_reward(0)
             task_success = 0
 
         results.append({
@@ -58,18 +66,19 @@ def run_experiment(net):
 
 if __name__ == '__main__':
 
-    nets = [Network(n_hidden=4, n_outputs=len(list(data.values())[0])) for _ in range(3)]
-    nets += [TaskRewardNetwork(n_hidden=4, n_outputs=len(list(data.values())[0])) for _ in range(3)]
+    nets = []
+    nets += [ActionPenaltyNetwork(n_hidden=2, n_outputs=len(list(data.values())[0])) for _ in range(8)]
+    nets += [TaskRewardNetwork(n_hidden=2, n_outputs=len(list(data.values())[0])) for _ in range(8)]
+    nets += [QLearningWrapper(action_list=[tuple(v) for v in data.values()]) for _ in range(8)]
 
-    pool = Pool(6)
-    df = pool.map(run_experiment, nets)
+    pool = Pool(12)
+    df = map(run_experiment, nets)
     pool.close()
 
-    print('joining...')
     df = pd.concat(df, ignore_index=True)
 
     print('plotting...')
-    sns.lineplot(df, x='step', y='success', hue='net', errorbar='sd', n_boot=1)
+    sns.lineplot(df.iloc[::10, :], x='step', y='success', hue='net', errorbar='ci', n_boot=1)
     plt.show()
 
 # f = plt.subplot(5, 1, 1)

@@ -1,3 +1,5 @@
+from abc import ABC, abstractmethod
+
 from learners import TabularLearner
 
 import numpy as np
@@ -18,7 +20,7 @@ class Network:
 
         self.reward = 0
 
-    def add_energy(self, amount):
+    def get_reward(self, amount):
         self.reward = amount
 
     def set_epsilon(self, e):
@@ -27,8 +29,9 @@ class Network:
         for agent in self.output_layer:
             agent.epsilon = e
 
+    @abstractmethod
     def reward_function(self, task_reward, action):
-        return task_reward - action
+        raise NotImplementedError()
 
     def act(self, input):
 
@@ -54,7 +57,38 @@ class Network:
         return self.output_state
 
 
+class ActionPenaltyNetwork(Network):
+
+    def reward_function(self, task_reward, action):
+        return task_reward - action
+
+
 class TaskRewardNetwork(Network):
 
     def reward_function(self, task_reward, action):
         return task_reward
+
+
+class QLearningWrapper:
+
+    def __init__(self, action_list):
+        self.learner = TabularLearner(action_list=action_list, default_value=100, alpha=0.1, gamma=0.95, epsilon=0.1)
+        self.reward = 0
+        self.input_state = None
+        self.action = None
+
+    def act(self, input):
+
+        if self.input_state is not None:
+            self.learner.update(self.input_state, self.action, self.reward, input)
+
+        self.action = self.learner.select_action(input)
+        self.input_state = input
+
+        return list(self.action)
+
+    def get_reward(self, amount):
+        self.reward = amount
+
+    def set_epsilon(self, e):
+        self.learner.epsilon = e

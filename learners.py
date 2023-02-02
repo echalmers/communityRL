@@ -1,4 +1,5 @@
 from numbers import Number
+import random
 
 import numpy as np
 
@@ -43,7 +44,7 @@ class TabularLearner:
     def select_action(self, state):
         if isinstance(self.epsilon, Number):
             if np.random.random() < self.epsilon:
-                return np.random.choice(list(self.Q))
+                return random.choice(list(self.Q))
 
         elif isinstance(self.softmax_temperature, Number):
             return np.random.choice(list(self.Q),
